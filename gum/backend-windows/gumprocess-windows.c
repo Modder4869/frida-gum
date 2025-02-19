@@ -266,10 +266,6 @@ gum_windows_get_thread_details (DWORD thread_id,
                                 GumThreadDetails * details)
 {
   gboolean success = FALSE;
-  static gsize initialized = FALSE;
-  static GumGetThreadDescriptionFunc get_thread_description;
-  static DWORD desired_access;
-  HANDLE thread = NULL;
 #ifdef _MSC_VER
   __declspec (align (64))
 #endif
@@ -327,33 +323,35 @@ gum_windows_get_thread_details (DWORD thread_id,
   }
   else
   {
-    DWORD previous_suspend_count;
+    HANDLE thread;
 
-    previous_suspend_count = SuspendThread (thread);
-    if (previous_suspend_count == (DWORD) -1)
-      goto beach;
-
-    if (previous_suspend_count == 0)
-      details->state = GUM_THREAD_RUNNING;
-    else
-      details->state = GUM_THREAD_STOPPED;
-
-    context.ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
-    if (GetThreadContext (thread, &context))
+    thread = OpenThread (THREAD_GET_CONTEXT | THREAD_SUSPEND_RESUME, FALSE,
+        thread_id);
+    if (thread != NULL)
     {
-      gum_windows_parse_context (&context, &details->cpu_context);
-      success = TRUE;
+      DWORD previous_suspend_count;
+
+      previous_suspend_count = SuspendThread (thread);
+      if (previous_suspend_count != (DWORD) -1)
+      {
+        if (previous_suspend_count == 0)
+          details->state = GUM_THREAD_RUNNING;
+        else
+          details->state = GUM_THREAD_STOPPED;
+
+        context.ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
+        if (GetThreadContext (thread, &context))
+        {
+          gum_windows_parse_context (&context, &details->cpu_context);
+          success = TRUE;
+        }
+
+        ResumeThread (thread);
+      }
+
+      CloseHandle (thread);
     }
-
-    ResumeThread (thread);
   }
-
-beach:
-  if (thread != NULL)
-    CloseHandle (thread);
-
-  if (!success)
-    g_free ((gpointer) details->name);
 
   return success;
 }

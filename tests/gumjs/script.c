@@ -5128,7 +5128,7 @@ TESTCASE (process_threads_can_be_enumerated_legacy_style)
     return;
 #endif
 
-#if defined (HAVE_MIPS)
+#if defined (HAVE_ANDROID) || defined (HAVE_MIPS)
   if (!g_test_slow ())
   {
     g_print ("<skipping, run in slow mode> ");

@@ -35,7 +35,6 @@
 TESTLIST_BEGIN (process)
   TESTENTRY (process_threads)
   TESTENTRY (process_threads_exclude_cloaked)
-  TESTENTRY (process_threads_should_include_name)
   TESTENTRY (process_modules)
   TESTENTRY (process_ranges)
   TESTENTRY (process_ranges_exclude_cloaked)
@@ -108,7 +107,6 @@ struct _TestThreadSyncData
 {
   GMutex mutex;
   GCond cond;
-  const gchar * name;
   volatile gboolean started;
   volatile GumThreadId thread_id;
   volatile gboolean * volatile done;
@@ -189,10 +187,8 @@ TESTCASE (process_threads)
   if (!check_thread_enumeration_testable ())
     return;
 
-  thread_a = create_sleeping_dummy_thread_sync ("process-test-sleeping-dummy-a",
-      &done, NULL);
-  thread_b = create_sleeping_dummy_thread_sync ("process-test-sleeping-dummy-b",
-      &done, NULL);
+  thread_a = create_sleeping_dummy_thread_sync (&done, NULL);
+  thread_b = create_sleeping_dummy_thread_sync (&done, NULL);
 
   ctx.number_of_calls = 0;
   ctx.value_to_return = TRUE;
@@ -218,8 +214,7 @@ TESTCASE (process_threads_exclude_cloaked)
   if (!check_thread_enumeration_testable ())
     return;
 
-  thread = create_sleeping_dummy_thread_sync ("process-test-sleeping-dummy",
-      &done, &ctx.needle);
+  thread = create_sleeping_dummy_thread_sync (&done, &ctx.needle);
 
   ctx.found = FALSE;
   gum_process_enumerate_threads (thread_check_cb, &ctx);
@@ -1189,8 +1184,7 @@ process_potential_export_search_result (const GumExportDetails * details,
 #endif
 
 static GThread *
-create_sleeping_dummy_thread_sync (const gchar * name,
-                                   volatile gboolean * done,
+create_sleeping_dummy_thread_sync (volatile gboolean * done,
                                    GumThreadId * thread_id)
 {
   TestThreadSyncData sync_data;
@@ -1200,12 +1194,12 @@ create_sleeping_dummy_thread_sync (const gchar * name,
   g_cond_init (&sync_data.cond);
   sync_data.started = FALSE;
   sync_data.thread_id = 0;
-  sync_data.name = name;
   sync_data.done = done;
 
   g_mutex_lock (&sync_data.mutex);
 
-  thread = g_thread_new (name, sleeping_dummy, &sync_data);
+  thread = g_thread_new ("process-test-sleeping-dummy", sleeping_dummy,
+      &sync_data);
 
   while (!sync_data.started)
     g_cond_wait (&sync_data.cond, &sync_data.mutex);

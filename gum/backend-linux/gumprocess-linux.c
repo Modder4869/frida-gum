@@ -392,6 +392,7 @@ gboolean
 gum_process_has_thread (GumThreadId thread_id)
 {
   gchar path[16 + 20 + 1];
+
   sprintf (path, "/proc/self/task/%" G_GSIZE_MODIFIER "u", thread_id);
 
   return g_file_test (path, G_FILE_TEST_EXISTS);
@@ -877,13 +878,8 @@ _gum_process_enumerate_threads (GumFoundThreadFunc func,
   while (carry_on && (name = g_dir_read_name (dir)) != NULL)
   {
     GumThreadDetails details;
-    gchar * thread_name;
 
     details.id = atoi (name);
-
-    thread_name = gum_thread_read_name (details.id);
-    details.name = thread_name;
-
     if (gum_thread_read_state (details.id, &details.state))
     {
       if (gum_process_modify_thread (details.id, gum_store_cpu_context,
@@ -892,8 +888,6 @@ _gum_process_enumerate_threads (GumFoundThreadFunc func,
         carry_on = func (&details, user_data);
       }
     }
-
-    g_free (thread_name);
   }
 
   g_dir_close (dir);
@@ -2336,26 +2330,6 @@ gum_unparse_gp_regs (const GumCpuContext * ctx,
 #else
 # error Unsupported architecture
 #endif
-}
-
-static gchar *
-gum_thread_read_name (GumThreadId thread_id)
-{
-  gchar * name = NULL;
-  gchar * path;
-  gchar * comm = NULL;
-
-  path = g_strdup_printf ("/proc/self/task/%" G_GSIZE_FORMAT "/comm",
-      thread_id);
-  if (!g_file_get_contents (path, &comm, NULL, NULL))
-    goto beach;
-  name = g_strchomp (g_steal_pointer (&comm));
-
-beach:
-  g_free (comm);
-  g_free (path);
-
-  return name;
 }
 
 static gboolean

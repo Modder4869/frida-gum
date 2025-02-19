@@ -1212,7 +1212,6 @@ gum_darwin_enumerate_threads (mach_port_t task,
       thread_basic_info_data_t info;
       mach_msg_type_number_t info_count = THREAD_BASIC_INFO_COUNT;
       GumDarwinUnifiedThreadState state;
-      gchar thread_name[64];
 
       kr = thread_info (thread, THREAD_BASIC_INFO, (thread_info_t) &info,
           &info_count);
@@ -1234,21 +1233,7 @@ gum_darwin_enumerate_threads (mach_port_t task,
 #endif
 
       details.id = (GumThreadId) thread;
-
-      details.name = NULL;
-      if (task == self)
-      {
-        pthread_t th = pthread_from_mach_thread_np (thread);
-        if (th != NULL)
-        {
-          pthread_getname_np (th, thread_name, sizeof (thread_name));
-          if (thread_name[0] != '\0')
-            details.name = thread_name;
-        }
-      }
-
       details.state = gum_thread_state_from_darwin (info.run_state);
-
       gum_darwin_parse_unified_thread_state (&state, &details.cpu_context);
 
       if (!func (&details, user_data))
